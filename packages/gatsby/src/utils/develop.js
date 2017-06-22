@@ -100,48 +100,59 @@ async function startServer(program) {
           return res.send(htmlStr)
         } else {
           try {
-            const apiRunner = require(`${directory}/.cache/api-runner-ssr`)
+            webpackRequire(
+              htmlCompilerConfig.resolve(),
+              `${directory}/.cache/api-runner-ssr`,
+              [],
+              [],
+              (apiRunnerErr, apiRunnerFactory) => {
+                if (apiRunnerErr) {
+                  console.log(`apiRunnerErr`, apiRunnerErr)
+                  process.exit()
+                }
+                const apiRunner = apiRunnerFactory()
+                let headComponents = []
+                let preBodyComponents = []
+                let postBodyComponents = []
+                let bodyProps = {}
 
-            let headComponents = []
-            let preBodyComponents = []
-            let postBodyComponents = []
-            let bodyProps = {}
+                const setHeadComponents = components => {
+                  headComponents = headComponents.concat(components)
+                }
 
-            const setHeadComponents = components => {
-              headComponents = headComponents.concat(components)
-            }
+                const setPreBodyComponents = components => {
+                  preBodyComponents = preBodyComponents.concat(components)
+                }
 
-            const setPreBodyComponents = components => {
-              preBodyComponents = preBodyComponents.concat(components)
-            }
+                const setPostBodyComponents = components => {
+                  postBodyComponents = postBodyComponents.concat(components)
+                }
 
-            const setPostBodyComponents = components => {
-              postBodyComponents = postBodyComponents.concat(components)
-            }
+                const setBodyProps = props => {
+                  bodyProps = _.merge({}, bodyProps, props)
+                }
 
-            const setBodyProps = props => {
-              bodyProps = _.merge({}, bodyProps, props)
-            }
+                apiRunner(`onRenderBody`, {
+                  setHeadComponents,
+                  setPreBodyComponents,
+                  setPostBodyComponents,
+                  setBodyProps,
+                })
 
-            apiRunner(`onRenderBody`, {
-              setHeadComponents,
-              setPreBodyComponents,
-              setPostBodyComponents,
-              setBodyProps,
-            })
-
-            const htmlElement = React.createElement(HTML, {
-              ...bodyProps,
-              body: ``,
-              headComponents,
-              preBodyComponents,
-              postBodyComponents: postBodyComponents.concat([
-                <script src="/commons.js" />,
-              ]),
-            })
-            htmlStr = ReactDOMServer.renderToStaticMarkup(htmlElement)
-            htmlStr = `<!DOCTYPE html>\n${htmlStr}`
-            return res.send(htmlStr)
+                const htmlElement = React.createElement(HTML, {
+                  ...bodyProps,
+                  body: ``,
+                  headComponents,
+                  preBodyComponents,
+                  postBodyComponents: postBodyComponents.concat([
+                    <script src="/commons.js" />,
+                  ]),
+                })
+                htmlStr = ReactDOMServer.renderToStaticMarkup(htmlElement)
+                htmlStr = `<!DOCTYPE html>\n${htmlStr}`
+                return res.send(htmlStr)
+              }
+            )
           } catch (e) {
             console.log(e.stack)
             throw e
